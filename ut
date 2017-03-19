@@ -1,0 +1,189 @@
+#!/usr/bin/env ruby
+
+# --- configuration -----------------------------------------------------------
+#
+UT_DIR=ENV['HOME']+'/Desktop/urbanterror'
+UT_EXE='Quake3-UrT.x86_64'
+UT_USR='acciuga'                        # my real screen name when console says "You"
+
+
+# --- utilities ---------------------------------------------------------------
+#
+class String
+  def fetch
+    split(/\^/)[1].strip[1..-1]         # shortcut for most console lines
+  end
+end
+
+
+require 'pg'
+
+class PGconn
+
+  # pump up events to database table
+  #
+  def upsert usr, newset, increm = [], incrval = 1
+    return  if usr.size < 3
+
+    sql1 = "insert into ut  (name, lastseen"
+    sql2 = ")  values ('#{escape_string usr}', to_timestamp(#{Time.now.to_f})"
+    sql3 = ")  on conflict (name) do update set  lastseen = to_timestamp(#{Time.now.to_f})"
+    sql4 = "  where ut.name = '#{escape_string usr}';"
+
+    if newset != []                     # single value to be initialized?
+      sql1 += ", #{newset.first}"
+      sql2 += ", '#{escape_string newset.last}'"
+      sql3 += ", #{newset.first} = '#{escape_string newset.last}'"
+    end
+
+    increm.each do |fld|                # numeric fields to be initialized or incremented
+      sql1 += ", #{fld}"
+      sql2 += ", #{incrval}"
+      sql3 += ", #{fld} = ut.#{fld} + #{incrval}"
+    end
+
+    sql = sql1+sql2+sql3+sql4
+
+    #STDERR.puts "#{Time.now.strftime '%T'}  debug:  #{sql}"
+    exec sql
+  end
+
+  # select up to ten ordered rows, possibly with "where" clause
+  #
+  def first10 ord, fields, limit=10, whereclause=''
+    sql = "select #{fields.join ', '}  from ut  #{whereclause}  order by #{ord}  limit #{limit}"
+
+    #STDERR.puts "#{Time.now.strftime '%T'}  debug:  #{sql}"
+    exec sql
+  end
+end
+
+
+# --- main --------------------------------------------------------------------
+#
+
+db = PGconn.new
+db.exec "set client_min_messages to warning;   -- don't complain if table already exists
+         create table if not exists
+         ut (name      varchar(32) unique,     -- screen name
+             account   varchar(32) default '', -- if reported, was guaranteed to be unique
+             location  varchar(32) default '', -- if 'None' it's a bot
+             firstseen timestamptz default current_timestamp,
+             lastseen  timestamptz default current_timestamp,
+             kills     integer     default 0,  -- player overall score
+             deaths    integer     default 0,  -- player overall shame
+             killed    integer     default 0,  -- times I killed this player
+             killedme  integer     default 0,  -- times I got killed by this player
+             hit       integer     default 0,  -- times I hit this player
+             hitme     integer     default 0,  -- times I got hit by this player
+             damage    integer     default 0,  -- sum of damages I inflicted to this player
+             damageme  integer     default 0,  -- sum of damages I got inflicted by
+             spree     integer     default 0,  -- player 'killing spree' events
+             lemming   integer     default 0,  -- suicides by jumping or drowning
+             grenade   integer     default 0,  -- suicides by stepping on own grenade
+             kicked    integer     default 0,  -- punishments, idle-logouts, bot disabling
+             smitten   integer     default 0); -- punishments by server administrators"
+
+# start the game and popen its console:
+#
+fp = ARGV.first == '-' ? STDIN : IO.popen("cd #{UT_DIR}; ./#{UT_EXE} +exec autoexec.cfg 2>&1")
+
+# parse and dispatch loop
+#
+fp.each_line do |lin|
+  c = lin.chomp
+
+  if /7connected from / =~ c
+
+    loc = $'.chomp
+    usr = c.split(/ \^7/)[1]
+    db.upsert usr, [ 'location', loc ], []
+
+  elsif / joined the battle/ =~ c
+
+    usr = c.split("^").first
+    db.upsert usr, [], []
+
+  elsif / account: \^7\^7/ =~ c
+
+    c = c.split("[auth] ^7")[1].split("^7")
+    usr = c.first
+    db.upsert usr, [ 'account', c[4] ], []
+
+  elsif (/ did the lemming thing/ =~ c) || (/ with fishes/ =~ c)
+
+    usr = c.fetch
+    db.upsert usr, [], [ 'deaths', 'lemming' ]
+
+  elsif (/ stepped on h.. own grenade/ =~ c) || (c.end_with? "'sploded.")
+
+    usr = c.fetch
+    db.upsert usr, [], [ 'deaths', 'grenade' ]
+
+  elsif / has been killed by \^4/ =~ c
+
+    usrkiller = $'.split("^7").first
+    usrkilled = c.fetch
+    db.upsert usrkiller, [], [ 'kills' ]
+    db.upsert usrkilled, [], [ 'deaths' ]
+
+  elsif c.start_with? "You killed "
+
+    usr = c.fetch
+    db.upsert UT_USR, [], [ 'kills' ]
+    db.upsert usr, [], [ 'deaths', 'killed' ]
+
+  elsif c.start_with? "You have been killed by "
+
+    usr = c.fetch
+    db.upsert UT_USR, [], [ 'deaths' ]
+    db.upsert usr, [], [ 'kills', 'killedme' ]
+
+  elsif c.start_with? "\u0012You hit ^"
+
+    usr = c.fetch
+    dam = c.split[-2].to_i
+    db.upsert usr, [], [ 'hit' ]
+    db.upsert usr, [], [ 'damage' ], dam
+
+  elsif c.start_with? "\u0012You were hit "
+
+    usr = c.fetch
+    dam = c.split[-2].to_i
+    db.upsert usr, [], [ 'hitme' ]
+    db.upsert usr, [], [ 'damageme' ], dam
+
+  elsif (c.end_with? "^7 was kicked") || (c.end_with? "Dropped due to inactivity")
+
+    usr = c.split("^").first
+    db.upsert usr, [], [ 'kicked' ]
+
+  elsif / was struck down / =~ c
+
+    usr = c.fetch
+    db.upsert usr, [], [ 'smitten' ]
+
+  elsif /7is on a killing spree / =~ c
+
+    usr = c.fetch
+    db.upsert usr, [], [ 'spree' ]
+
+  end
+end
+
+# a few final statistics...
+#
+fields = %w{ name location killed killedme hit hitme damage damageme }
+
+nme = db.first10 "damageme desc", fields
+puts "\nrank, name and location of toughest enemies (ordered by max damage):   killed killedme hit hitme damage damageme"
+nme.values.each_with_index do |elem, i|
+  puts "%2d) %-32s %-32s  %6d %8d %3d %5d %6d %8d" % ([ i+1 ] + elem)
+end
+
+nme = db.first10 "ratio desc", fields + [ "(killed*100.0/(greatest(1,killedme))) as ratio" ], 10, "where location != 'None'"
+puts "\nrank, name & location of human enemies I slayed more (by kill ratio):  killed killedme hit hitme damage damageme"
+nme.values.each_with_index do |elem, i|
+  puts "%2d) %-32s %-32s  %6d %8d %3d %5d %6d %8d" % ([ i+1 ] + elem)
+end
+
