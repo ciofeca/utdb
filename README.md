@@ -1,4 +1,4 @@
-== Description ==
+## Description
 
 Given an UrbanTerror client and some time slaying enemies in deathmatch-like modes, aggregate players statistics (kills, hitting, cumulative damage, being killed, accidental stepping on own grenades, and so on) in a local PostgreSQL database.
 
@@ -25,14 +25,14 @@ Table fields:
 
 Name, account and location are string type; except the two timestamps, the other fields are integers.
 
-=== Installation ===
+## Installation
 
 Assuming "Ubuntu Linux" as operating system. Ruby is required for the data collector script.
 
     sudo apt install ruby postgresql libpq-dev
     sudo gem install pg
 
-=== Trusting local users ===
+## Trusting local users
 
 In the "IPv4 local connections" section of *pg_hba.conf* switch from default *md5* to *trust:*
 
@@ -40,7 +40,7 @@ In the "IPv4 local connections" section of *pg_hba.conf* switch from default *md
 
 If you don't do this, you'll need to manually authenticate to PostgreSQL (adding a few parameters to *PGconn.new*).
 
-=== Initializing database ===
+## Initializing database
 
 Assuming "acciuga" as Ubuntu login user:
 
@@ -48,6 +48,6 @@ Assuming "acciuga" as Ubuntu login user:
         create user acciuga;
         create database acciuga;
 
-=== Launcher script ===
+## Launcher script
 
 The original version just does an *upsert* for every console-reported event, allowing real-time statistics.
