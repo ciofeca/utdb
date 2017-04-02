@@ -5,7 +5,7 @@
 UT_DIR=ENV['HOME']+'/Desktop/urbanterror'
 UT_EXE='Quake3-UrT.x86_64'
 UT_USR='acciuga'                        # my real screen name when console says "You"
-
+UT_UNP='/dev/null'                      # where to log unparsed console messages
 
 # --- utilities ---------------------------------------------------------------
 #
@@ -19,7 +19,6 @@ end
 require 'pg'
 
 class PGconn
-
   # pump up events to database table
   #
   def upsert usr, newset, increm = [], incrval = 1
@@ -42,7 +41,7 @@ class PGconn
       sql3 += ", #{fld} = ut.#{fld} + #{incrval}"
     end
 
-    sql = sql1+sql2+sql3+sql4
+    sql = sql1 + sql2 + sql3 + sql4
 
     #STDERR.puts "#{Time.now.strftime '%T'}  debug:  #{sql}"
     exec sql
@@ -50,7 +49,7 @@ class PGconn
 
   # select up to ten ordered rows, possibly with "where" clause
   #
-  def first10 ord, fields, limit=10, whereclause=''
+  def first ord, fields, limit=10, whereclause=''
     sql = "select #{fields.join ', '}  from ut  #{whereclause}  order by #{ord}  limit #{limit}"
 
     #STDERR.puts "#{Time.now.strftime '%T'}  debug:  #{sql}"
@@ -86,110 +85,104 @@ db.exec "set client_min_messages to warning;   -- don't complain if table alread
 
 # start the game and popen its console:
 #
-start, k, d = Time.now, 0, 0
+start, k, d, i, g = Time.now, 0, 0, 0, 0
+logfile = open(UT_UNP, 'a')
 fp = ARGV.first == '-' ? STDIN : IO.popen("cd #{UT_DIR}; ./#{UT_EXE} +exec autoexec.cfg 2>&1")
 
 # parse and dispatch loop
 #
 fp.each_line do |lin|
   c = lin.chomp
+  case c
+    when /7connected from /
+      loc = $'.chomp
+      usr = c.split(/ \^7/)[1]
+      db.upsert usr, [ 'location', loc ], []
 
-  if /7connected from / =~ c
+    when / joined the battle/
+      usr = c.split("^").first
+      db.upsert usr, [], []
 
-    loc = $'.chomp
-    usr = c.split(/ \^7/)[1]
-    db.upsert usr, [ 'location', loc ], []
+    when / account: \^7\^7/
+      c = c.split("[auth] ^7")[1].split("^7")
+      usr = c.first
+      db.upsert usr, [ 'account', c[4] ], []
 
-  elsif / joined the battle/ =~ c
+    when / did the lemming thing/, / with fishes/
+      usr = c.fetch
+      db.upsert usr, [], [ 'deaths', 'lemming' ]
 
-    usr = c.split("^").first
-    db.upsert usr, [], []
+    when / stepped on h.. own grenade/, /'sploded\./
+      usr = c.fetch
+      db.upsert usr, [], [ 'deaths', 'grenade' ]
 
-  elsif / account: \^7\^7/ =~ c
+    when / has been killed by \^/
+      usrkiller = $'.split("^7").first
+      usrkilled = c.fetch
+      db.upsert usrkiller, [], [ 'kills' ]
+      db.upsert usrkilled, [], [ 'deaths' ]
 
-    c = c.split("[auth] ^7")[1].split("^7")
-    usr = c.first
-    db.upsert usr, [ 'account', c[4] ], []
+    when /^You killed /
+      usr = c.fetch
+      k += 1
+      db.upsert UT_USR, [], [ 'kills' ]
+      db.upsert usr, [], [ 'deaths', 'killed' ]
 
-  elsif (/ did the lemming thing/ =~ c) || (/ with fishes/ =~ c)
+    when /^You have been killed by /
+      usr = c.fetch
+      d += 1
+      db.upsert UT_USR, [], [ 'deaths' ]
+      db.upsert usr, [], [ 'kills', 'killedme' ]
 
-    usr = c.fetch
-    db.upsert usr, [], [ 'deaths', 'lemming' ]
+    when /^.You hit \^/
+      usr = c.fetch
+      dam = c.split[-2].to_i
+      i += dam
+      db.upsert usr, [], [ 'hit' ]
+      db.upsert usr, [], [ 'damage' ], dam
 
-  elsif (/ stepped on h.. own grenade/ =~ c) || (c.end_with? "'sploded.")
+    when /^.You were hit /
+      usr = c.fetch
+      dam = c.split[-2].to_i
+      g += dam
+      db.upsert usr, [], [ 'hitme' ]
+      db.upsert usr, [], [ 'damageme' ], dam
 
-    usr = c.fetch
-    db.upsert usr, [], [ 'deaths', 'grenade' ]
+    when /\^7 was kicked$/, /Dropped due to inactivity$/
+      usr = c.split("^").first
+      db.upsert usr, [], [ 'kicked' ]
 
-  elsif / has been killed by \^4/ =~ c
+    when / was struck down /, /SMITTEN/
+      usr = c.fetch
+      db.upsert usr, [], [ 'smitten' ]
 
-    usrkiller = $'.split("^7").first
-    usrkilled = c.fetch
-    db.upsert usrkiller, [], [ 'kills' ]
-    db.upsert usrkilled, [], [ 'deaths' ]
+    when /7is on a killing spree /
+      usr = c.fetch
+      db.upsert usr, [], [ 'spree' ]
 
-  elsif c.start_with? "You killed "
-
-    usr = c.fetch
-    k += 1
-    db.upsert UT_USR, [], [ 'kills' ]
-    db.upsert usr, [], [ 'deaths', 'killed' ]
-
-  elsif c.start_with? "You have been killed by "
-
-    usr = c.fetch
-    d += 1
-    db.upsert UT_USR, [], [ 'deaths' ]
-    db.upsert usr, [], [ 'kills', 'killedme' ]
-
-  elsif c.start_with? "\u0012You hit ^"
-
-    usr = c.fetch
-    dam = c.split[-2].to_i
-    db.upsert usr, [], [ 'hit' ]
-    db.upsert usr, [], [ 'damage' ], dam
-
-  elsif c.start_with? "\u0012You were hit "
-
-    usr = c.fetch
-    dam = c.split[-2].to_i
-    db.upsert usr, [], [ 'hitme' ]
-    db.upsert usr, [], [ 'damageme' ], dam
-
-  elsif (c.end_with? "^7 was kicked") || (c.end_with? "Dropped due to inactivity")
-
-    usr = c.split("^").first
-    db.upsert usr, [], [ 'kicked' ]
-
-  elsif / was struck down / =~ c
-
-    usr = c.fetch
-    db.upsert usr, [], [ 'smitten' ]
-
-  elsif /7is on a killing spree / =~ c
-
-    usr = c.fetch
-    db.upsert usr, [], [ 'spree' ]
-
+    else
+      logfile.puts Time.now.strftime('%Y%m%d:%H%M%S.%L ') + c
   end
 end
 
 # a few final statistics...
 #
-
 t = (Time.now - start).to_i/6
-puts "\ntime wasted playing: #{t/10}.#{t%10} min -- #{k} kills -- #{d} deaths"
+puts
+puts "wasted time: #{t/10}.#{t%10} min --- #{k} kills, #{d} deaths --- #{i}% inflicted, #{g}% got"
 
 fields = %w{ name location killed killedme hit hitme damage damageme }
 
-nme = db.first10 "damageme desc", fields
-puts "\nrank, name and location of toughest enemies (ordered by max damage):   killed killedme hit hitme damage damageme"
+nme = db.first "damageme desc", fields, 15
+puts
+puts "rank, name and location of toughest enemies (ordered by max damage):   killed killedme hit hitme damage damageme"
 nme.values.each_with_index do |elem, i|
   puts "%2d) %-32s %-32s  %6d %8d %3d %5d %6d %8d" % ([ i+1 ] + elem)
 end
 
-nme = db.first10 "ratio desc", fields + [ "(killed*100.0/(greatest(1,killedme))) as ratio" ], 10, "where location != 'None' and (killed+killedme)>10"
-puts "\nrank, name & location of human enemies I slayed more (by kill ratio):  killed killedme hit hitme damage damageme"
+nme = db.first "ratio desc", fields + [ "(killed*100.0/(greatest(1,killedme))) as ratio" ], 15, "where location != 'None' and (killed+killedme)>=10"
+puts
+puts "rank, name & location of human enemies I slayed more (by kill ratio):  killed killedme hit hitme damage damageme"
 nme.values.each_with_index do |elem, i|
   puts "%2d) %-32s %-32s  %6d %8d %3d %5d %6d %8d" % ([ i+1 ] + elem)
 end
