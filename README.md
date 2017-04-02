@@ -44,7 +44,7 @@ If you don't do this, you'll need to manually authenticate to PostgreSQL (adding
 
 Assuming "acciuga" as Ubuntu login user:
 
-    sudo -u postgres psql postgres
+    sudo -u postgres psql
         create user acciuga;
         create database acciuga;
 
