@@ -15,6 +15,14 @@ class String
   end
 end
 
+class Integer
+  def sanitize min, max
+    return min  if self < min
+    return max  if self > max
+    self
+  end
+end
+
 
 require 'pg'
 
@@ -136,14 +144,14 @@ fp.each_line do |lin|
 
     when /^.You hit \^/
       usr = c.fetch
-      dam = c.split[-2].to_i
+      dam = c.split[-2].to_i.sanitize(1,99)
       i += dam
       db.upsert usr, [], [ 'hit' ]
       db.upsert usr, [], [ 'damage' ], dam
 
     when /^.You were hit /
       usr = c.fetch
-      dam = c.split[-2].to_i
+      dam = c.split[-2].to_i.sanitize(1,99)
       g += dam
       db.upsert usr, [], [ 'hitme' ]
       db.upsert usr, [], [ 'damageme' ], dam
@@ -173,9 +181,9 @@ puts "wasted time: #{t/10}.#{t%10} min --- #{k} kills, #{d} deaths --- #{i}% inf
 
 fields = %w{ name location killed killedme hit hitme damage damageme }
 
-nme = db.first "damageme desc", fields, 15
+nme = db.first "damageme desc", fields, 15, "where location != 'None'"
 puts
-puts "rank, name and location of toughest enemies (ordered by max damage):   killed killedme hit hitme damage damageme"
+puts "rank, name & location of toughest human enemies ordered by max damage: killed killedme hit hitme damage damageme"
 nme.values.each_with_index do |elem, i|
   puts "%2d) %-32s %-32s  %6d %8d %3d %5d %6d %8d" % ([ i+1 ] + elem)
 end

@@ -21,7 +21,7 @@ Table fields:
 * spree: number of times the server flattered this player reporting his/her ongoing "killing spree"
 * lemming: number of times the player died because of high jumping/falling or drowning
 * kicked: times the player was kicked by the server for some reason (idle, bot disabling...)
-* smitten: punishment explicitly inflicted by server administrator
+* smitten: punishment explicitly inflicted by server administrator or admin bot
 
 Name, account and location are string type; except the two timestamps, the other fields are integers.
 
@@ -50,4 +50,9 @@ Assuming "acciuga" as Ubuntu login user:
 
 ## Launcher script
 
-The original version just does an *upsert* for every console-reported event, allowing real-time statistics.
+It just does an *upsert* for every console-reported event, allowing real-time statistics.
+
+## How to troll
+
+When I'm playing, if you */say* the correct patterns then false events will be added to the database. *LOL.*
+Mitigation: wider and hardened regex patterns.
