@@ -27,7 +27,7 @@ end
 require 'pg'
 
 class PGconn
-  # pump up events to database table
+  # pump up an event to database table
   #
   def upsert usr, newset, increm = [], incrval = 1
     return  if usr.size < 3
@@ -57,11 +57,24 @@ class PGconn
 
   # select up to ten ordered rows, possibly with "where" clause
   #
-  def first ord, fields, limit=10, whereclause=''
+  def select fields, whereclause, ord, limit
     sql = "select #{fields.join ', '}  from ut  #{whereclause}  order by #{ord}  limit #{limit}"
 
     #STDERR.puts "#{Time.now.strftime '%T'}  debug:  #{sql}"
     exec sql
+  end
+
+  # output stats (query a few fields, apply optional extra field and where-clause)
+  #
+  def stats desc, ordby, extra='', wher=''
+    fields = %w{ name location killed killedme hit hitme damage damageme lastseen }
+    fields += [ extra ]  if extra != ''
+    nme = select fields, "where location != 'None' #{wher}", ordby, 30
+    puts
+    puts "%-62s%s" % [ "#{desc}:", "killed killedme hit hitme damage damageme      last seen on" ]
+    nme.values.each_with_index do |elem, i|
+      puts "%2d) %-24.24s %-32s %6d %8d %3d %5d %6d %8d  %-16.16s" % ([ i+1 ] + elem)
+    end
   end
 end
 
@@ -179,19 +192,10 @@ t = (Time.now - start).to_i/6
 puts
 puts "wasted time: #{t/10}.#{t%10} min --- #{k} kills, #{d} deaths --- #{i}% inflicted, #{g}% got"
 
-fields = %w{ name location killed killedme hit hitme damage damageme }
+db.stats "latest human enemies report", "lastseen desc", '', "and (damage+damageme) != 0"
+db.stats "toughest human enemies ordered by max received damage", "damageme desc"
+db.stats "toughest Italian enemies ordered by max received damage", "damageme desc", '', "and location='Italy (IT)'"
+db.stats "toughest human enemies ordered by max total kills", "(killed+killedme) desc" 
+db.stats "human enemies I slayed more (by kill ratio)", "ratio desc", "(killed*100.0/(greatest(1,killedme))) as ratio", "and (killed+killedme)>=10"
 
-nme = db.first "damageme desc", fields, 15, "where location != 'None'"
-puts
-puts "rank, name & location of toughest human enemies ordered by max damage: killed killedme hit hitme damage damageme"
-nme.values.each_with_index do |elem, i|
-  puts "%2d) %-32s %-32s  %6d %8d %3d %5d %6d %8d" % ([ i+1 ] + elem)
-end
-
-nme = db.first "ratio desc", fields + [ "(killed*100.0/(greatest(1,killedme))) as ratio" ], 15, "where location != 'None' and (killed+killedme)>=10"
-puts
-puts "rank, name & location of human enemies I slayed more (by kill ratio):  killed killedme hit hitme damage damageme"
-nme.values.each_with_index do |elem, i|
-  puts "%2d) %-32s %-32s  %6d %8d %3d %5d %6d %8d" % ([ i+1 ] + elem)
-end
 
