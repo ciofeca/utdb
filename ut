@@ -85,7 +85,7 @@ end
 db = PGconn.new
 db.exec "set client_min_messages to warning;   -- don't complain if table already exists
          create table if not exists
-         ut (name      varchar(32) unique,     -- screen name
+         ut (name      varchar(20) unique,     -- screen name
              account   varchar(32) default '', -- if reported, was guaranteed to be unique
              location  varchar(32) default '', -- if 'None' it's a bot
              firstseen timestamptz default current_timestamp,
