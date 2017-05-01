@@ -25,6 +25,17 @@ class Integer
   def perc                              # prettyprint a 0-1000 value as a 0.0%-100.0% string
     "#{self/10}.#{self%10}%"
   end
+
+  def ratio n                           # prettyprint a 1:n or n:1 ratio, if nonzeros
+    return "0:#{n}"  if self == 0
+    return "#{self}:0"  if n == 0
+    r = if self < n
+          (n * 100.0 / self).floor / 100.0
+        else
+          (self * 100.0 / n).floor / 100.0
+        end.to_s
+    self < n ? "1:#{r}" : "#{r}:1"
+  end
 end
 
 
@@ -219,17 +230,20 @@ puts
 puts "summary out of #{lines} console events, #{upserts} database updates (#{(upserts*1000/lines).perc}):"
 
 puts
-puts "wasted time: #{t/10}.#{t%10} min --- #{k} kills, #{d} deaths --- #{i}% inflicted, #{g}% got"
+puts "wasted time: #{t/10}.#{t%10} min --- #{k} kills, #{d} deaths (#{k.ratio d}) --- #{i}% inflicted, #{g}% got (#{i.ratio g})"
 
 overall = %w{ killed killedme hit hitme damage damageme lemming grenade }
 o = (db.select(overall.collect { |i| "sum(#{i}) as #{i}" }).first).
     merge(db.select(%w{ lemming grenade }, "where name='#{UT_USR}'").first).
     collect { |key,val| val.to_i }
 puts
-puts "overall personal score vs humans: #{o[0]}:#{o[1]} kills, #{o[2]}:#{o[3]} hits, #{o[4]/1000}k:#{o[5]/1000}k damage%, #{o[6]}+#{o[7]} suicides"
+puts "overall personal score vs humans:"
+puts "%24s %s" % [ "#{o[0]}:#{o[1]} kills   ", "(#{o[0].ratio o[1]})" ]
+puts "%24s %s" % [ "#{o[2]}:#{o[3]} hits    ", "(#{o[2].ratio o[3]})" ]
+puts "%24s %s" % [ "#{o[4]/1000}k:#{o[5]/1000}k damage% ", "(#{o[4].ratio o[5]})" ]
+puts "%24s"    % [ "#{o[6]}+#{o[7]} suicides" ]
 
 dkr, dkrme = o[4]*10/o[0], o[5]*10/o[1]
-puts
 # a good player has dkr>100% (the higher the better), dkrme approximately 100% (the higher the worse)
-puts "damage/kill ratio: #{dkr.perc} -- damaged/killed ratio: #{dkrme.perc}"
+puts "%24s -- %s" % [ "#{dkr.perc} damage/kill ratio", "#{dkrme.perc} damaged/killed ratio" ]
 puts
