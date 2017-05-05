@@ -5,7 +5,7 @@
 UT_DIR=ENV['HOME']+'/Desktop/urbanterror'
 UT_EXE='Quake3-UrT.x86_64'
 UT_USR='acciuga'                        # my real screen name when console says "You"
-UT_UNP='/dev/null'                      # unparsed console messages log file, or /dev/null
+UT_UNP='/tmp/ut.log'                    # unparsed console messages log file, or /dev/null
 
 # --- utilities ---------------------------------------------------------------
 #
@@ -66,8 +66,13 @@ class PGconn
 
     sql = sql1 + sql2 + sql3 + sql4
 
-    #STDERR.puts "#{Time.now.strftime '%T'}  debug:  #{sql}"
-    exec sql
+    begin
+      exec sql                          # should only crash in case of oversized varchars
+    rescue PG::Error => e
+      STDERR.puts "FAILED: #{sql}"
+      STDERR.puts "#{e}"
+      fail "cannot ignore errors"
+    end
   end
 
   # select up to ten ordered rows, possibly with "where" clause and optional "limit"
@@ -85,16 +90,16 @@ class PGconn
   # output stats (query a few fields, apply optional extra field and where-clause)
   #
   def stats desc, ordby, extra='', wher=''
-    fields = %w{ name location killed killedme hit hitme damage damageme lastseen }
+    fields = %w{ name location killed killedme hit hitme damage damageme rekt rektme lastseen }
     fields += [ extra ]  if extra != ''
     nme = select fields, "where location != 'None' #{wher}", ordby, 30
 
     return  if nme.ntuples < 1                  # don't bother if no rows selected
 
     puts
-    puts "%-62s%s" % [ "#{desc}:", "killed killedme hit hitme damage damageme      last seen on" ]
+    puts "%-62s%s" % [ "#{desc}:", "killed killedme hit hitme damage damageme rekt rektme      last seen on" ]
     nme.values.each_with_index do |elem, i|
-      puts "%2d) %-24.24s %-32s %6d %8d %3d %5d %6d %8d  %-16.16s" % ([ i+1 ] + elem)
+      puts "%2d) %-24.24s %-32s %6d %8d %3d %5d %6d %8d %4d %6d  %-16.16s" % ([ i+1 ] + elem)
     end
   end
 end
@@ -119,6 +124,8 @@ db.exec "set client_min_messages to warning;   -- don't complain if table alread
              hitme     integer     default 0,  -- times I got hit by this player
              damage    integer     default 0,  -- sum of damages I inflicted to this player
              damageme  integer     default 0,  -- sum of damages I got inflicted by
+             rekt      integer     default 0,  -- times I inflicted 100% damage hit
+             rektme    integer     default 0,  -- times I got 100% damage by a single hit
              spree     integer     default 0,  -- player 'killing spree' events
              lemming   integer     default 0,  -- suicides by jumping or drowning
              grenade   integer     default 0,  -- suicides by stepping on own grenade
@@ -156,7 +163,7 @@ fp.each_line do |lin|
     usr = c.fetch
     db.upsert usr, [], [ 'deaths', 'lemming' ]
 
-  when / stepped on h.. own grenade/, /'sploded\./
+  when / stepped on h.. own grenade/, /'Sploded\./
     usr = c.fetch
     db.upsert usr, [], [ 'deaths', 'grenade' ]
 
@@ -181,19 +188,27 @@ fp.each_line do |lin|
 
   when /^.You hit \^/
     usr = c.fetch
-    dam = c.split[-2].to_i.sanitize(1,99)
+    dam = c.split[-2].to_i.sanitize(1,100)
     i += dam
     db.upsert usr, [], [ 'hit' ]
     db.upsert usr, [], [ 'damage' ], dam
     upserts += 1
+    if dam == 100
+      db.upsert usr, [], [ 'rekt' ]
+      upserts += 1
+    end
 
   when /^.You were hit /
     usr = c.fetch
-    dam = c.split[-2].to_i.sanitize(1,99)
+    dam = c.split[-2].to_i.sanitize(1,100)
     g += dam
     db.upsert usr, [], [ 'hitme' ]
     db.upsert usr, [], [ 'damageme' ], dam
     upserts += 1
+    if dam == 100
+      db.upsert usr, [], [ 'rektme' ]
+      upserts += 1
+    end
 
   when /\^7 was kicked$/, /Dropped due to inactivity$/
     usr = c.split("^").first
@@ -206,12 +221,12 @@ fp.each_line do |lin|
   when /7is on a killing spree /
     usr = c.fetch
     db.upsert usr, [], [ 'spree' ]
-
   else
-    logfile.puts Time.now.strftime('%Y%m%d:%H%M%S.%L ') + c
+    logfile.puts "#{Time.now.strftime '%Y%m%d:%H%M%S.%L'}  #{lin.chomp}"  # unparsed
     next
   end
 
+  #logfile.puts "#{Time.now.strftime '%Y%m%d:%H%M%S.%L'}> #{lin.chomp}"   # parsed
   upserts += 1
 end
 

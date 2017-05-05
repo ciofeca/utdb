@@ -18,6 +18,8 @@ Table fields:
 * hitme: times I was actually hit without being killed
 * damage: cumulative damage percentages reported by hit events
 * damageme: cumulative damage inflicted by this player to me
+* rekt: times I inflicted 100% damage in a single hit, mostly headshots
+* rektme: times I got 100% damage in a single hit, mostly headshots
 * spree: number of times the server flattered this player reporting his/her ongoing "killing spree"
 * lemming: number of times the player died because of high jumping/falling or drowning
 * kicked: times the player was kicked by the server for some reason (idle, bot disabling...)
@@ -47,6 +49,8 @@ Assuming "acciuga" as Ubuntu login user:
     sudo -u postgres psql
         create user acciuga;
         create database acciuga;
+
+The *table-add-columns.sh* initializes the *rekt* and *rektme* columns that were not present in my first releases. I added them because it seems some players use an autoaim mod *(tl;dr: cheating)* getting absurdly high headshots rates, even at a distance and as soon as I enter their field of view.
 
 ## Launcher script
 
