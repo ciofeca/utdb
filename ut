@@ -163,7 +163,10 @@ fp.each_line do |lin|
     usr = c.fetch
     db.upsert usr, [], [ 'deaths', 'lemming' ]
 
-  when / stepped on h.. own grenade/, /'Sploded\./
+  when /'Sploded\./
+    db.upsert UT_USR, [], [ 'deaths', 'grenade' ]
+
+  when / stepped on h.. own grenade/
     usr = c.fetch
     db.upsert usr, [], [ 'deaths', 'grenade' ]
 
