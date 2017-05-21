@@ -90,16 +90,16 @@ class PGconn
   # output stats (query a few fields, apply optional extra field and where-clause)
   #
   def stats desc, ordby, extra='', wher=''
-    fields = %w{ name location killed killedme hit hitme damage damageme rekt rektme lastseen }
+    fields = %w{ name location killed killedme hit hitme damage damageme rekt rektme kills deaths lastseen }
     fields += [ extra ]  if extra != ''
     nme = select fields, "where location != 'None' #{wher}", ordby, 30
 
     return  if nme.ntuples < 1                  # don't bother if no rows selected
 
     puts
-    puts "%-62s%s" % [ "#{desc}:", "killed killedme hit hitme damage damageme rekt rektme      last seen on" ]
+    puts "%-62s%s" % [ "#{desc}:", "killed killedme hit hitme damage damageme rekt rektme kills deaths     last seen on" ]
     nme.values.each_with_index do |elem, i|
-      puts "%2d) %-24.24s %-32s %6d %8d %3d %5d %6d %8d %4d %6d  %-16.16s" % ([ i+1 ] + elem)
+      puts "%2d) %-24.24s %-32s %6d %8d %3d %5d %6d %8d %4d %6d %5d %6d  %-16.16s" % ([ i+1 ] + elem)
     end
   end
 end
@@ -150,11 +150,11 @@ fp.each_line do |lin|
     usr = c.split(/ \^7/)[1]
     db.upsert usr, [ 'location', loc ], []
 
-  when / joined the battle/
-    usr = c.split("^").first
+  when /\^. joined the battle/
+    usr = $`
     db.upsert usr, [], []
 
-  when / account: \^7\^7/
+  when / account: \^.\^./
     c = c.split("[auth] ^7")[1].split("^7")
     usr = c.first
     db.upsert usr, [ 'account', c[4] ], []
@@ -170,9 +170,10 @@ fp.each_line do |lin|
     usr = c.fetch
     db.upsert usr, [], [ 'deaths', 'grenade' ]
 
-  when / has been killed by \^/
-    usrkiller = $'.split("^7").first
+  when / has been killed by \^./
+    usrkiller = $'.chomp
     usrkilled = c.fetch
+    usrkiller = usrkiller.sub("^7^7.",'')
     db.upsert usrkiller, [], [ 'kills' ]
     db.upsert usrkilled, [], [ 'deaths' ]
 
