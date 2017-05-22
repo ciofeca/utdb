@@ -130,7 +130,8 @@ db.exec "set client_min_messages to warning;   -- don't complain if table alread
              lemming   integer     default 0,  -- suicides by jumping or drowning
              grenade   integer     default 0,  -- suicides by stepping on own grenade
              kicked    integer     default 0,  -- punishments, idle-logouts, bot disabling
-             smitten   integer     default 0); -- punishments by server administrators"
+             smitten   integer     default 0); -- punishments by server administrators;
+         insert into ut (name) values ('#{UT_USR}')"
 
 # start the game and popen its console:
 #
@@ -262,6 +263,8 @@ puts "%24s %s" % [ "#{o[2]}:#{o[3]} hits    ", "(#{o[2].ratio o[3]})" ]
 puts "%24s %s" % [ "#{o[4]/1000}k:#{o[5]/1000}k damage% ", "(#{o[4].ratio o[5]})" ]
 puts "%24s"    % [ "#{o[6]}+#{o[7]} suicides" ]
 
+o[0] = 1  if o[0] == 0
+o[1] = 1  if o[1] == 0
 dkr, dkrme = o[4]*10/o[0], o[5]*10/o[1]
 # a good player has dkr>100% (the higher the better), dkrme approximately 100% (the higher the worse)
 puts "%24s -- %s" % [ "#{dkr.perc} damage/kill ratio", "#{dkrme.perc} damaged/killed ratio" ]
