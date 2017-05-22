@@ -87,12 +87,18 @@ class PGconn
     exec sql
   end
 
+  # 'humans' count
+  #
+  def count
+    exec("select count(*)  from ut  where location != 'None'").first['count'].to_i
+  end
+
   # output stats (query a few fields, apply optional extra field and where-clause)
   #
   def stats desc, ordby, extra='', wher=''
     fields = %w{ name location killed killedme hit hitme damage damageme rekt rektme kills deaths lastseen }
     fields += [ extra ]  if extra != ''
-    nme = select fields, "where location != 'None' #{wher}", ordby, 30
+    nme = select fields, "where name != '#{UT_USR}' and location != 'None' #{wher}", ordby, 30
 
     return  if nme.ntuples < 1                  # don't bother if no rows selected
 
@@ -131,7 +137,7 @@ db.exec "set client_min_messages to warning;   -- don't complain if table alread
              grenade   integer     default 0,  -- suicides by stepping on own grenade
              kicked    integer     default 0,  -- punishments, idle-logouts, bot disabling
              smitten   integer     default 0); -- punishments by server administrators;
-         insert into ut (name) values ('#{UT_USR}')"
+	 insert into ut (name) values ('#{UT_USR}') on conflict (name) do update set lastseen = to_timestamp(#{Time.now.to_f})"
 
 # start the game and popen its console:
 #
@@ -257,7 +263,7 @@ o = (db.select(overall.collect { |i| "sum(#{i}) as #{i}" }).first).
     merge(db.select(%w{ lemming grenade }, "where name='#{UT_USR}'").first).
     collect { |key,val| val.to_i }
 puts
-puts "overall personal score vs humans:"
+puts "overall personal score vs #{db.count} humans:"
 puts "%24s %s" % [ "#{o[0]}:#{o[1]} kills   ", "(#{o[0].ratio o[1]})" ]
 puts "%24s %s" % [ "#{o[2]}:#{o[3]} hits    ", "(#{o[2].ratio o[3]})" ]
 puts "%24s %s" % [ "#{o[4]/1000}k:#{o[5]/1000}k damage% ", "(#{o[4].ratio o[5]})" ]
