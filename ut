@@ -248,7 +248,7 @@ puts
 db.stats "toughest human enemies ordered by max received damage", "damageme desc"
 db.stats "toughest Italian enemies ordered by max received damage", "damageme desc", '', "and location='Italy (IT)'"
 db.stats "toughest human enemies ordered by total kills", "killedme desc" 
-db.stats "human enemies I slayed more (by kill ratio)", "ratio desc", "(killed*100.0/(greatest(1,killedme))) as ratio", "and (killed+killedme)>=10"
+db.stats "human enemies I slayed more (by kill ratio)", "ratio desc", "(killed*100.0/(greatest(1,killedme))) as ratio", "and (killed+killedme)>=10 and killed>killedme"
 db.stats "latest human enemies report", "lastseen desc", '', "and (damage+damageme) != 0 and lastseen >= (current_timestamp - interval '3 hours')"
 
 puts
