@@ -75,7 +75,7 @@ class PGconn
     end
   end
 
-  # select up to ten ordered rows, possibly with "where" clause and optional "limit"
+  # select up to lim ordered rows, possibly with "where" clause and optional "limit"
   #
   def select fields, whe=nil, ord=nil, lim=nil
     ord = "order by #{ord}"  if ord

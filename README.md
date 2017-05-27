@@ -7,7 +7,7 @@ Depending on people playing on a server, there could be up to 3000-4000 *upsert*
 Table fields:
 * screen name chosen by the player (ascii)
 * account name, if present; an account may have more than a screen name associated, cannot contain special characters
-* location, as reported by the server guessed by the IP address; 'None' means the player is a bot (not human)
+* location, as reported by the server guessed by the IP address; some server use 'None' for bots
 * firstseen, timestamp of record creation
 * lastseen, most recent timestamped event about this player
 * kills: player total kills (others + me)
