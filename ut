@@ -268,7 +268,7 @@ puts "overall personal score vs #{db.count} humans:"
 puts "%24s %s" % [ "#{o[0]}:#{o[1]} kills   ", "(#{o[0].ratio o[1]})" ]
 puts "%24s %s" % [ "#{o[2]}:#{o[3]} hits    ", "(#{o[2].ratio o[3]})" ]
 puts "%24s %s" % [ "#{o[4]/1000}k:#{o[5]/1000}k damage% ", "(#{o[4].ratio o[5]})" ]
-puts "%24s"    % [ "#{o[6]}+#{o[7]} suicides" ]
+puts "%24s (%s)" % [ "#{o[6]}+#{o[7]} suicides", o[1]<1 ? "arrrgh" : ((o[6]+o[7])*1000 / o[1]).perc ]
 
 o[0] = 1  if o[0] == 0
 o[1] = 1  if o[1] == 0
