@@ -41,7 +41,7 @@ end
 
 require 'pg'
 
-class PGconn
+class PG::Connection
   # pump up an event to database table
   #
   def upsert usr, newset, increm = [], incrval = 1
@@ -114,7 +114,7 @@ end
 # --- main --------------------------------------------------------------------
 #
 
-db = PGconn.new
+db = PG::Connection.new
 db.exec "set client_min_messages to warning;   -- don't complain if table already exists
          create table if not exists
          ut (name      varchar(20) unique,     -- screen name
