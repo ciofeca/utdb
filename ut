@@ -87,7 +87,8 @@ class PG::Connection
     exec sql
   end
 
-  # 'humans' count
+  # players count
+  # "None" was only supported by a few servers
   #
   def count
     exec("select count(*)  from ut  where location != 'None'").first['count'].to_i
@@ -245,12 +246,12 @@ end
 #
 t = (Time.now - start).to_i/6
 puts
-db.stats "toughest human enemies ordered by max received damage", "damageme desc", '', "and damageme>0"
+db.stats "toughest enemies ordered by max received damage", "damageme desc", '', "and damageme>0"
 db.stats "toughest Italian enemies ordered by max received damage", "damageme desc", '', "and location='Italy (IT)' and damageme>0"
-db.stats "toughest human enemies ordered by total kills", "killedme desc", '', "and killedme>0"
+db.stats "toughest enemies ordered by total kills", "killedme desc", '', "and killedme>0"
 db.stats "suspected aimbot (cheating users)", "ratio desc", "rektme/killedme as ratio", "and killedme>0 and rektme>=10"
-db.stats "human enemies I slayed more (by kill ratio)", "ratio desc", "(killed*100.0/(greatest(1,killedme))) as ratio", "and (killed+killedme)>=10 and killed>killedme"
-db.stats "latest human enemies report", "lastseen desc", '', "and (damage+damageme) != 0 and lastseen >= (current_timestamp - interval '3 hours')"
+db.stats "enemies I slayed more (by kill ratio)", "ratio desc", "(killed*100.0/(greatest(1,killedme))) as ratio", "and (killed+killedme)>=10 and killed>killedme"
+db.stats "latest enemies report", "lastseen desc", '', "and (damage+damageme) != 0 and lastseen >= (current_timestamp - interval '3 hours')"
 
 puts
 # you've been watching/camping too much if you get a low percentage of updates...
@@ -264,7 +265,7 @@ o = (db.select(overall.collect { |i| "sum(#{i}) as #{i}" }).first).
     merge(db.select(%w{ lemming grenade }, "where name='#{UT_USR}'").first).
     collect { |key,val| val.to_i }
 puts
-puts "overall personal score vs #{db.count} humans:"
+puts "overall personal score vs #{db.count} players:"
 puts "%24s %s" % [ "#{o[0]}:#{o[1]} kills   ", "(#{o[0].ratio o[1]})" ]
 puts "%24s %s" % [ "#{o[2]}:#{o[3]} hits    ", "(#{o[2].ratio o[3]})" ]
 puts "%24s %s" % [ "#{o[4]/1000}k:#{o[5]/1000}k damage% ", "(#{o[4].ratio o[5]})" ]
