@@ -167,7 +167,7 @@ fp.each_line do |lin|
     usr = c.first
     db.upsert usr, [ 'account', c[4] ], []
 
-  when / did the lemming thing/, / with fishes/
+  when / did the lemming thing/, / decided to swim with the fishes/, / was crushed to death/
     usr = c.fetch
     db.upsert usr, [], [ 'deaths', 'lemming' ]
 
