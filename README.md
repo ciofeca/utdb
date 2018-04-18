@@ -36,7 +36,7 @@ Assuming "Ubuntu Linux" as operating system. Ruby is required for the data colle
 
 ## Trusting local users
 
-In the "IPv4 local connections" section of *pg_hba.conf* switch from default *md5* to *trust:*
+If using PostgreSQL 9.x, in the "IPv4 local connections" section of *pg_hba.conf* switch from default *md5* to *trust:*
 
     host  all  all  127.0.0.1/32  trust
 

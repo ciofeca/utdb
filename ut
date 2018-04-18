@@ -226,7 +226,7 @@ fp.each_line do |lin|
     usr = c.split("^").first
     db.upsert usr, [], [ 'kicked' ]
 
-  when / was struck down /, /SMITTEN/
+  when / was struck down /, /SMITTEN/, /was ..SLAPPED!/
     usr = c.fetch
     db.upsert usr, [], [ 'smitten' ]
 
