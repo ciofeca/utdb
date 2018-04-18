@@ -120,7 +120,7 @@ db.exec "set client_min_messages to warning;   -- don't complain if table alread
          create table if not exists
          ut (name      varchar(20) unique,     -- screen name
              account   varchar(32) default '', -- if reported, was guaranteed to be unique
-             location  varchar(32) default '', -- if 'None' it's a bot
+             location  varchar(40) default '', -- if 'None' it's a bot
              firstseen timestamptz default current_timestamp,
              lastseen  timestamptz default current_timestamp,
              kills     integer     default 0,  -- player overall score
